@@ -1,5 +1,5 @@
 ========================================================================
-    COOPERATE MULTITASKING IMPLEMENTATION SAMPLE
+    COOPERATIVE MULTITASKING IMPLEMENTATION SAMPLE
 ========================================================================
 
 Pure C implementation of cooperative multitasking without multithreading
