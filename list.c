@@ -6,33 +6,35 @@
 #include "enums.h"
 #include <string.h>
 
-int push_back(struct Task** head, int* current_cmd, enum priority current_priority, int current_id);
-struct Task* pop_front(struct Task** head);
-struct Task* pop_back(struct Task** head);
-int clear(struct Task** head);
-int size(struct Task** head);
-struct Task* value_at(struct Task** head, int position);
-int remove_by_id(struct Task** head, int current_id);
-struct Task* get_task_with_max_priority(struct Task** head);
+int push_back(struct thread_t** head, int* current_cmd, int current_id, enum priority current_priority, void* stack_base_ptr);
+struct thread_t* pop_front(struct thread_t** head);
+struct thread_t* pop_back(struct thread_t** head);
+int clear(struct thread_t** head);
+int size(struct thread_t** head);
+struct thread_t* value_at(struct thread_t** head, int position);
+int remove_by_id(struct thread_t** head, int current_id);
+struct thread_t* get_thread_t_with_max_priority(struct thread_t** head);
+struct thread_t* get_by_id(struct thread_t** head, int current_id);
 
-int push_back(struct Task** head, int* func_ptr, enum priority current_priority, int current_id)
+int push_back(struct thread_t** head, int* func_ptr, int current_id, enum priority current_priority, void* stack_base_ptr)
 {
-	struct Task* current = *head;
-	struct Task* newNode;
+	struct thread_t* current = *head;
+	struct thread_t* new_node;
 
-	newNode = (struct Task*)malloc(sizeof(struct Task));
-	newNode->id = current_id;
-	newNode->saved_eip = NULL;
-	newNode->saved_esp = NULL;
-	newNode->next = NULL;
-	newNode->func_ptr = func_ptr;
+	new_node = (struct thread_t*)malloc(sizeof(struct thread_t));
+	new_node->id = current_id;
+	new_node->saved_context = NULL;
+	new_node->next = NULL;
+	new_node->func_ptr = func_ptr;
+	new_node->stack_base = stack_base_ptr;
+	new_node->subscriber = NULL;
 
-	newNode->state = ready;
-	newNode->priority = current_priority;
+	new_node->state = ready;
+	new_node->priority = current_priority;
 
 	if (current == NULL)
 	{
-		*head = newNode;
+		*head = new_node;
 	}
 	else
 	{
@@ -40,15 +42,15 @@ int push_back(struct Task** head, int* func_ptr, enum priority current_priority,
 		{
 			current = current->next;
 		}
-		current->next = newNode;
+		current->next = new_node;
 	}
 
 	return 0;
 }
 
-struct Task* value_at(struct Task** head, int position)
+struct thread_t* value_at(struct thread_t** head, int position)
 {
-	struct Task* current = *head;
+	struct thread_t* current = *head;
 	if (head == NULL)
 		return -1;
 	int current_position = 0;
@@ -70,13 +72,13 @@ struct Task* value_at(struct Task** head, int position)
 	return NULL;
 }
 
-int remove_by_id(struct Task** head, int current_id)
+int remove_by_id(struct thread_t** head, int current_id)
 {
 	if (*head == NULL)
 		return -1;
 
-	struct Task* current = *head;
-	struct Task* temp = NULL;
+	struct thread_t* current = *head;
+	struct thread_t* temp = NULL;
 
 	if (current->id == current_id)
 	{
@@ -107,13 +109,34 @@ int remove_by_id(struct Task** head, int current_id)
 	return -2;
 }
 
-int clear(struct Task** head)
+struct thread_t* get_by_id(struct thread_t** head, int current_id)
 {
-	struct Task* current = *head;
+	struct thread_t* current = *head;
+	if (*head == NULL)
+		return NULL;
+
+	while (current->next != NULL)
+	{
+		if (current->id == current_id)
+		{
+			return current;
+		}
+		current = current->next;
+	}
+	if (current->id == current_id)
+	{
+		return current;
+	}
+	return NULL;
+}
+
+int clear(struct thread_t** head)
+{
+	struct thread_t* current = *head;
 	if (head == NULL)
 		return 1;
 
-	struct Task* temp = NULL;
+	struct thread_t* temp = NULL;
 
 	while (current->next != NULL)
 	{
@@ -127,49 +150,49 @@ int clear(struct Task** head)
 	return 0;
 }
 
-struct Task* get_task_with_max_priority(struct Task** head)
+struct thread_t* get_thread_t_with_max_priority(struct thread_t** head)
 {
 	if (*head == NULL)
 		return -1;
 
-	struct Task* current = *head;
-	struct Task* task_with_max_priority = NULL;
+	struct thread_t* current = *head;
+	struct thread_t* thread_t_with_max_priority = NULL;
 
 	while (current->next != NULL)
 	{
-		if (task_with_max_priority == NULL)
+		if (thread_t_with_max_priority == NULL)
 		{
 			if (current->state == ready)
-				task_with_max_priority = current;
+				thread_t_with_max_priority = current;
 		}
 		else
 		{
-			if (current->priority > task_with_max_priority->priority)
-				task_with_max_priority = current;
+			if (current->priority > thread_t_with_max_priority->priority)
+				thread_t_with_max_priority = current;
 		}
 		current = current->next;
 	}
-	if (task_with_max_priority == NULL)
+	if (thread_t_with_max_priority == NULL)
 	{
 		if (current->state == ready)
-			task_with_max_priority = current;
+			thread_t_with_max_priority = current;
 	}
 	else
 	{
-		if (current->priority > task_with_max_priority->priority)
-			task_with_max_priority = current;
+		if (current->priority > thread_t_with_max_priority->priority)
+			thread_t_with_max_priority = current;
 	}
 
-	return task_with_max_priority;
+	return thread_t_with_max_priority;
 }
 
-struct Task* pop_front(struct Task** head)
+struct thread_t* pop_front(struct thread_t** head)
 {
 	if (*head == NULL)
 		return -1;
 
-	struct Task* current = *head;
-	struct Task* result = (struct Task*)malloc(sizeof(struct Task));
+	struct thread_t* current = *head;
+	struct thread_t* result = (struct thread_t*)malloc(sizeof(struct thread_t));
 	result = current;
 
 	*head = (*head)->next;
@@ -178,14 +201,14 @@ struct Task* pop_front(struct Task** head)
 	return result;
 }
 
-struct Task* pop_back(struct Task** head)
+struct thread_t* pop_back(struct thread_t** head)
 {
 	if (*head == NULL)
 		return -1;
 
-	struct Task* current = *head;
-	struct Task* temp = *head;
-	struct Task* result = (struct Task*)malloc(sizeof(struct Task));
+	struct thread_t* current = *head;
+	struct thread_t* temp = *head;
+	struct thread_t* result = (struct thread_t*)malloc(sizeof(struct thread_t));
 
 	while (current->next != NULL)
 	{
@@ -199,12 +222,12 @@ struct Task* pop_back(struct Task** head)
 	return result;
 }
 
-int size(struct Task** head)
+int size(struct thread_t** head)
 {
 	if (*head == NULL)
 		return 0;
 
-	struct Task* current = *head;
+	struct thread_t* current = *head;
 
 	int size = 0;
 
