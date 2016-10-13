@@ -1,24 +1,26 @@
 #ifndef LIST_H
 #define LIST_H
 
-int push_back(struct Task** head, int* func_ptr, enum priority current_priority, int current_id);
-struct Task* pop_front(struct Task** head);
-struct Task* pop_back(struct Task** head);
-int clear(struct Task** head);
-int size(struct Task** head);
-struct Task* value_at(struct Task** head, int position);
-int remove_by_id(struct Task** head, int current_id);
-struct Task* get_task_with_max_priority(struct Task** head);
+int push_back(struct thread_t** head, int* func_ptr, int current_id, enum priority current_priority, void* stack_base_ptr);
+struct thread_t* pop_front(struct thread_t** head);
+struct thread_t* pop_back(struct thread_t** head);
+int clear(struct thread_t** head);
+int size(struct thread_t** head);
+struct thread_t* value_at(struct thread_t** head, int position);
+int remove_by_id(struct thread_t** head, int current_id);
+struct thread_t* get_thread_t_with_max_priority(struct thread_t** head);
+struct thread_t* get_by_id(struct thread_t** head, int current_id);
 
-struct Task
+struct thread_t
 {
 	int id;
-	int* saved_eip;
-	int* saved_esp;
-	struct Task* next;
+	int* saved_context;
+	void* stack_base;
+	struct thread_t* next;
 	int* func_ptr;
 	enum state state;
 	enum priority priority;
+	struct thread_t* subscriber;
 };
 
 #endif
