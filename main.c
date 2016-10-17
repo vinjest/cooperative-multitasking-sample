@@ -13,28 +13,25 @@ int main()
 {
 	puts("Main thread start!");
 	mutex = create_mutex();
+
 	struct thread_t* first = create_thread(&func_first, stack_allocate());
-	struct thread_t* second = create_thread(&func_second, stack_allocate());
 	struct thread_t* third = create_thread(&func_third, stack_allocate());
-	
+
 	join(first);
-	join(second);
 	join(third);
-	
+
 	puts("Main thread end!");
 	getchar();
 	return 0;
 }
 
 void func_first()
-{
-	acquire_mutex(mutex);
-
+{	
 	puts("First thread start!");
+	struct thread_t* second = create_thread(&func_second, stack_allocate());
+	join(second);
 	next();
 	puts("First thread end!");
-
-	release_mutex(mutex);
 }
 
 void func_second()
@@ -50,7 +47,11 @@ void func_second()
 
 void func_third()
 {
+	acquire_mutex(mutex);
+
 	puts("Third thread start!");
 	next();
 	puts("Third thread end!");
+
+	release_mutex(mutex);
 }
