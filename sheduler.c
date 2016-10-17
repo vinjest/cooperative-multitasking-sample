@@ -40,8 +40,12 @@ int* current_func_ret = &task_epilogue;
 static jmp_buf yield_func_ctx;
 static jmp_buf next_func_ctx;
 static jmp_buf init_func_ctx;
+static jmp_buf init_func_ctx_after_switch;
 static jmp_buf create_func_ctx;
 static jmp_buf join_func_ctx;
+static jmp_buf resume_func_ctx;
+static jmp_buf pause_func_ctx;
+static jmp_buf acquire_mutex_func_ctx;
 
 void init()
 {
@@ -49,9 +53,14 @@ void init()
 	while (size(&thread_list) != 0)
 	{
 		current_task = next_task();
-		if (current_task == NULL)
-			break;
 
+		if (current_task == NULL)
+		{
+			/*When deadlock unlock main thread*/
+			current_task = get_by_id(&thread_list, main_thread_id);
+			current_task->state = ready;
+		}
+		if (!setjmp(init_func_ctx_after_switch));
 		yield();
 	}
 }
@@ -59,7 +68,7 @@ void init()
 void* stack_allocate()
 {
 	intptr_t allocated_mem_base_ptr = malloc(default_stack_size);
-	allocated_mem_base_ptr += default_stack_size - 7;
+	allocated_mem_base_ptr += default_stack_size - 1;
 	return (void*)allocated_mem_base_ptr;
 }
 
@@ -67,6 +76,9 @@ struct thread_t* create_thread(void(*func_ptr), void* stack_ptr)
 {
 	if (func_ptr == NULL || stack_ptr == NULL)
 		return NULL;
+
+	if (current_task)
+		current_task->state = ready;
 
 	if (!setjmp(create_func_ctx))
 	{
@@ -78,7 +90,19 @@ struct thread_t* create_thread(void(*func_ptr), void* stack_ptr)
 			main_thread_ptr->saved_context = buf_boxing(create_func_ctx);
 		}
 		else
-			main_thread_ptr->saved_context = buf_boxing(create_func_ctx);
+		{
+			if (current_task->id == main_thread_id)
+			{
+				free(main_thread_ptr->saved_context);
+				main_thread_ptr->saved_context = buf_boxing(create_func_ctx);
+			}
+			else
+			{
+				if (current_task->saved_context != NULL)
+					free(current_task->saved_context);
+				current_task->saved_context = buf_boxing(create_func_ctx);
+			}
+		}
 
 		push_back(&thread_list, func_ptr, thread_counter, medium, stack_ptr);
 		recently_added_thread = get_by_id(&thread_list, thread_counter);
@@ -93,19 +117,30 @@ void pause(struct thread_t* thread_ptr)
 {
 	struct thread_t* thread = get_by_id(&thread_list, thread_ptr->id);
 	if (thread)
-	{
-		thread->state = blocked;
-		longjmp(init_func_ctx, 1);
-	}
+		thread_ptr->state = blocked;
 }
 
 void resume(struct thread_t* thread_ptr)
 {
-	struct thread_t* thread = get_by_id(&thread_list, thread_ptr->id);
-	if (thread)
+	if (!setjmp(resume_func_ctx))
 	{
-		thread->state = ready;
-		longjmp(init_func_ctx, 1);
+		struct thread_t* thread = get_by_id(&thread_list, thread_ptr->id);
+		if (thread)
+		{
+			if (thread->state != blocked)
+				return;
+
+			if (current_task)
+			{
+				if (current_task->saved_context != NULL)
+					free(current_task->saved_context);
+				current_task->saved_context = buf_boxing(resume_func_ctx);
+				current_task->state = ready;
+
+				current_task = thread;
+				longjmp(init_func_ctx_after_switch, 1);
+			}
+		}
 	}
 }
 
@@ -121,6 +156,8 @@ struct mutex_t* create_mutex()
 
 void acquire_mutex(struct mutex_t* mtx)
 {
+	if (!setjmp(acquire_mutex_func_ctx));
+
 	if (mtx->counter == 0)
 	{
 		mtx->owner_id = current_task->id;
@@ -134,7 +171,12 @@ void acquire_mutex(struct mutex_t* mtx)
 		}
 		else
 		{
-			longjmp(yield_func_ctx, 1);
+			current_task->state = ready;
+			if (current_task->saved_context != NULL)
+				free(current_task->saved_context);
+			current_task->saved_context = buf_boxing(acquire_mutex_func_ctx);
+
+			longjmp(init_func_ctx, 1);
 		}
 	}
 }
@@ -158,16 +200,15 @@ void yield()
 
 			if (!setjmp(yield_func_ctx))
 			{
-				current_task->state = running;
 				void* allocated_stack_base = current_task->stack_base;
-
+				current_task->state = running;
 				__asm
 				{
 					mov esp, allocated_stack_base;
 					call func_ptr;
 				}
 				task_epilogue();
-				longjmp(yield_func_ctx, 1);
+				longjmp(init_func_ctx, 1);
 			}
 		}
 		else
@@ -184,27 +225,26 @@ void yield()
 				mov esp, current_task_stack_base;
 				push current_func_ret;
 			}
+			current_task->state = running;
 			longjmp(buf_unboxed, 1);
 		}
 	}
 	else
 	{
-
 		int* buf_boxed = current_task->saved_context;
 		int buf_unboxed[16];
 		int i = 0;
 		for (i = 0; i < 16; i++)
 			buf_unboxed[i] = buf_boxed[i];
-
+		current_task->state = running;
 		longjmp(buf_unboxed, 1);
-
 	}
 }
 
 void set_priority(struct thread_t* thread_ptr, int priority)
 {
 	struct thread_t* thread = get_by_id(&thread_list, thread_ptr->id);
-	if (thread != NULL)
+	if (thread)
 		thread->priority = priority;
 }
 
@@ -213,10 +253,12 @@ void join(struct thread_t* thread_ptr)
 	if (!setjmp(join_func_ctx))
 	{
 		struct thread_t* thread = get_by_id(&thread_list, thread_ptr->id);
-		if (thread != NULL)
+		if (thread)
 		{
 			thread->subscriber = current_task;
 			current_task->state = blocked;
+			if (current_task->saved_context != NULL)
+				free(current_task->saved_context);
 			current_task->saved_context = buf_boxing(join_func_ctx);
 			longjmp(init_func_ctx, 1);
 		}
@@ -237,10 +279,16 @@ void next()
 {
 	if (!setjmp(next_func_ctx))
 	{
-		current_task->saved_context = buf_boxing(next_func_ctx);
-		current_task->state = ready;
+		if (current_task)
+		{
+			if (current_task->saved_context != NULL)
+				free(current_task->saved_context);
 
-		longjmp(yield_func_ctx, 1);
+			current_task->saved_context = buf_boxing(next_func_ctx);
+			current_task->state = ready;
+
+			longjmp(init_func_ctx, 1);
+		}
 	}
 }
 
