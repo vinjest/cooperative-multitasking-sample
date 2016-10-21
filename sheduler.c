@@ -1,6 +1,7 @@
 #include <setjmp.h>
 #include <stdbool.h>
 #include <malloc.h>
+#include <time.h>
 #include "list.h"
 
 #define default_stack_size 65536
@@ -14,8 +15,10 @@ static jmp_buf create_thread_return_ctx;
 void* stack_allocate();
 void yield();
 void create_thread(void(*func_ptr)());
-void thread_start(void(*func_ptr)());
+void thread_start(void(*func_ptr)(), struct thread_t* added_thread_ptr);
 void terminate_thread(struct thread_t* thread);
+
+void sleep(int milliseconds);
 
 void* stack_allocate()
 {
@@ -57,32 +60,45 @@ void terminate_thread(struct thread_t* thread)
     yield();
 }
 
-void thread_start(void(*func_ptr)())
+void thread_start(void(*func_ptr)(), struct thread_t* added_thread_ptr)
 {
-    if (!setjmp(current_thread->saved_context))
+    if (!setjmp(added_thread_ptr->saved_context))
     {
         longjmp(create_thread_return_ctx, 1);
     }
     else
     {
         func_ptr();
-        terminate_thread(current_thread);
+        terminate_thread(added_thread_ptr);
     }
 }
 
 void create_thread(void(*func_ptr)())
 {
-    struct thread_t* current_thread_saved_ptr = current_thread;
-
     if (!setjmp(create_thread_return_ctx))
     {
-        current_thread = add_thread(&thread_list);
+        struct thread_t* added_thread = add_thread(&thread_list);
 
         void* allocated_mem_ptr = stack_allocate();
 
         asm volatile("mov %0, %%esp"::"r"(allocated_mem_ptr));
+        asm volatile("push %0"::"r"(added_thread));
         asm volatile("push %0"::"r"(func_ptr));
         asm volatile ("call %0"::"r"(&thread_start));
     }
-    current_thread = current_thread_saved_ptr;
+}
+
+void sleep(int milliseconds)
+{
+    int gone_ms = 0;
+    int trigger = milliseconds;
+
+    clock_t start_time = clock();
+
+    do
+    {
+      clock_t difference = clock() - start_time;
+      gone_ms = difference * 1000 / CLOCKS_PER_SEC;
+    }
+    while (gone_ms < trigger);
 }
