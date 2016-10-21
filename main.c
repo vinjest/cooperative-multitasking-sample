@@ -25,5 +25,6 @@ void func_second()
 {
     puts("Second thread start!");
     yield();
+    sleep(1000);
     puts("Second thread end!");
 }
