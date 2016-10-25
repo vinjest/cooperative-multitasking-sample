@@ -90,15 +90,24 @@ void create_thread(void(*func_ptr)())
 
 void sleep(int milliseconds)
 {
-    int gone_ms = 0;
-    int trigger = milliseconds;
-
-    clock_t start_time = clock();
-
-    do
+    if (!current_thread->isSleeping)
     {
-      clock_t difference = clock() - start_time;
-      gone_ms = difference * 1000 / CLOCKS_PER_SEC;
+        int gone_ms = 0;
+        current_thread->fall_asleep_time = clock();
+        current_thread->wakeup_time = milliseconds;
+        current_thread->isSleeping = true;
+
+        do
+        {
+            yield();
+            clock_t difference = clock() - current_thread->fall_asleep_time;
+            gone_ms = difference * 1000 / CLOCKS_PER_SEC;
+        }
+        while (gone_ms < current_thread->wakeup_time);
     }
-    while (gone_ms < trigger);
+    
+    current_thread->isSleeping = false;
+    current_thread->fall_asleep_time = NULL;
+    current_thread->wakeup_time = 0;
 }
+
