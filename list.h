@@ -9,9 +9,7 @@ struct thread_t
     jmp_buf saved_context;
     struct thread_t* next;
     bool isReady;
-    bool isSleeping;
-    clock_t fall_asleep_time;
-    int wakeup_time;
+    long wakeup_time;
 };
 
 struct thread_t* add_thread(struct thread_t** head);
