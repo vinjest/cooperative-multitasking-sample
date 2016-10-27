@@ -18,7 +18,7 @@ void create_thread(void(*func_ptr)());
 void thread_start(void(*func_ptr)(), struct thread_t* added_thread_ptr);
 void terminate_thread(struct thread_t* thread);
 
-void sleep(int milliseconds);
+void sleep(long milliseconds);
 
 void* stack_allocate()
 {
@@ -49,7 +49,10 @@ void yield()
             longjmp(current_thread->saved_context, 1);
         }
         else
+        {
+            current_thread = caller;
             longjmp(caller->saved_context, 1);
+        }
     }
 }
 
@@ -88,26 +91,20 @@ void create_thread(void(*func_ptr)())
     }
 }
 
-void sleep(int milliseconds)
+void sleep(long milliseconds)
 {
-    if (!current_thread->isSleeping)
+    if (size(&thread_list) != 0)
     {
-        int gone_ms = 0;
-        current_thread->fall_asleep_time = clock();
-        current_thread->wakeup_time = milliseconds;
-        current_thread->isSleeping = true;
-
-        do
+        if (!current_thread)
         {
-            yield();
-            clock_t difference = clock() - current_thread->fall_asleep_time;
-            gone_ms = difference * 1000 / CLOCKS_PER_SEC;
+            caller = (struct thread_t*)malloc(sizeof(struct thread_t));
+            current_thread = caller;
         }
-        while (gone_ms < current_thread->wakeup_time);
+        current_thread->wakeup_time = milliseconds;
+        yield();
+        while (clock() < current_thread->wakeup_time);
+        current_thread->wakeup_time = 0;
     }
-    
-    current_thread->isSleeping = false;
-    current_thread->fall_asleep_time = NULL;
-    current_thread->wakeup_time = 0;
+    else
+        while(clock() < milliseconds);
 }
-
