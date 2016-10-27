@@ -21,8 +21,6 @@ struct thread_t* add_thread(struct thread_t** head)
 
     new_node->next = NULL;
     new_node->isReady = true;
-    new_node->isSleeping = false;
-    new_node->fall_asleep_time = NULL;
     new_node->wakeup_time = 0;
 
     if (current == NULL)
