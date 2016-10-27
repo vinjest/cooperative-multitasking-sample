@@ -102,9 +102,9 @@ void sleep(long milliseconds)
         }
         current_thread->wakeup_time = milliseconds;
         yield();
-        while (clock() < current_thread->wakeup_time);
+        while(((clock() / CLOCKS_PER_SEC) * 1000) < current_thread->wakeup_time);
         current_thread->wakeup_time = 0;
     }
     else
-        while(clock() < milliseconds);
+        while(((clock() / CLOCKS_PER_SEC) * 1000) < milliseconds);
 }
