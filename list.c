@@ -1,10 +1,11 @@
 #include <malloc.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include "list.h"
 
 struct thread_t* add_thread(struct thread_t** head);
 int remove_thread(struct thread_t** head, struct thread_t* thread);
-struct thread_t* get_next_thread(struct thread_t** head, struct thread_t* current_thread);
+struct thread_t* get_next_thread(struct thread_t** head, struct thread_t** current_thread);
 struct thread_t* pop_front(struct thread_t** head);
 struct thread_t* pop_back(struct thread_t** head);
 int clear(struct thread_t** head);
@@ -13,17 +14,18 @@ int size(struct thread_t** head);
 struct thread_t* add_thread(struct thread_t** head)
 {
     struct thread_t* current = *head;
-    struct thread_t* new_node;
+    struct thread_t* new_node = NULL;
 
     new_node = (struct thread_t*)malloc(sizeof(struct thread_t));
-    if (new_node == NULL)
+    if (!new_node)
         return NULL;
 
     new_node->next = NULL;
     new_node->isReady = true;
     new_node->wakeup_time = 0;
+    new_node->joined_thread = NULL;
 
-    if (current == NULL)
+    if (*head == NULL)
     {
         *head = new_node;
     }
@@ -35,7 +37,6 @@ struct thread_t* add_thread(struct thread_t** head)
         }
         current->next = new_node;
     }
-
     return new_node;
 }
 
@@ -74,9 +75,14 @@ int remove_thread(struct thread_t** head, struct thread_t* thread)
     return -1;
 }
 
-struct thread_t* get_next_thread(struct thread_t** head, struct thread_t* current_thread)
+struct thread_t* get_next_thread(struct thread_t** head, struct thread_t** previous_thread)
 {
     struct thread_t* current = *head;
+    struct thread_t* previous = *previous_thread;
+
+    struct thread_t* first_among_the_sleepless = NULL;
+    struct thread_t* first_among_the_sleeping = NULL;
+
     if (*head == NULL)
         return NULL;
 
@@ -84,22 +90,65 @@ struct thread_t* get_next_thread(struct thread_t** head, struct thread_t* curren
     {
         if (current->isReady)
         {
-            if (current != current_thread)
-                return current;
-        }
+            if (((clock() / CLOCKS_PER_SEC) * 1000) >= current->wakeup_time)
+            {
+                if (current != previous)
+                {
+                    if (!first_among_the_sleepless)
+                        first_among_the_sleepless = current;
+                }
+            }
+            else
+            {
+                    if (!first_among_the_sleeping)
+                        first_among_the_sleeping = current;
+                    else
+                    {
+                        if (current->wakeup_time < first_among_the_sleeping->wakeup_time)
+                            first_among_the_sleeping = current;
+                    }
 
+            }
+        }
         current = current->next;
     }
+
     if (current->isReady)
     {
-        if (current != current_thread)
-            return current;
+        if (((clock() / CLOCKS_PER_SEC) * 1000) >= current->wakeup_time)
+        {
+            if (current != previous)
+            {
+                if (!first_among_the_sleepless)
+                    first_among_the_sleepless = current;
+            }
+        }
+        else
+        {
+                if (!first_among_the_sleeping)
+                    first_among_the_sleeping = current;
+                else
+                {
+                    if (current->wakeup_time < first_among_the_sleeping->wakeup_time)
+                        first_among_the_sleeping = current;
+                }
+        }
     }
 
-    if (current_thread->isReady)
-        return current_thread;
+    if (first_among_the_sleepless)
+        return first_among_the_sleepless;
     else
-        return NULL;
+        if (previous->isReady && (((clock() / CLOCKS_PER_SEC) * 1000) >= previous->wakeup_time))
+            return previous;
+    else
+        if (first_among_the_sleeping)
+        {
+            while(((clock() / CLOCKS_PER_SEC) * 1000) < first_among_the_sleeping->wakeup_time);
+            first_among_the_sleeping->wakeup_time = 0;
+            return first_among_the_sleeping;
+        }
+
+    return NULL;
 }
 
 int clear(struct thread_t** head)
