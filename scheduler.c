@@ -38,18 +38,14 @@ void yield()
 
     if (!setjmp(current_thread->saved_context))
     {
-        current_thread = get_next_thread(&thread_list, &current_thread);
+        current_thread = next_thread(&thread_list, &current_thread);
         longjmp(current_thread->saved_context, 1);
     }
 }
 
 void terminate_thread(struct thread_t* thread)
 {
-    if (thread->joined_thread)
-        (thread->joined_thread)->isReady = true;
-
-
-    remove_thread(&thread_list, thread);
+    remove_thread(&thread_list, &thread);
     thread->isReady = false;
     yield();
 }
@@ -96,13 +92,9 @@ void sleep(long milliseconds)
 
 void join(struct thread_t* thread)
 {
-    if (thread)
-    {
-        if (thread->isReady)
-        {
-            thread->joined_thread = current_thread;
-            current_thread->isReady = false;
-            yield();
-        }
-    }
+    if (!thread)
+        return;
+
+    current_thread->joined_thread = thread;
+    yield();
 }
