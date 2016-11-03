@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "sheduler.h"
+#include "scheduler.h"
 
 void func_first();
 void func_second();
