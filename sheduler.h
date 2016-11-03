@@ -13,6 +13,7 @@ struct thread_t
 {
     jmp_buf saved_context;
     struct thread_t* next;
+    struct thread_t* prev;
     struct thread_t* joined_thread;
     long wakeup_time;
     bool isReady;
