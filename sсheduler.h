@@ -1,5 +1,5 @@
-#ifndef SHEDULER_H
-#define SHEDULER_H
+#ifndef SCHEDULER_H
+#define SCHEDULER_H
 
 #include <setjmp.h>
 #include <stdbool.h>
