@@ -15,6 +15,7 @@ struct thread_t* add_thread(struct thread_t** head)
     new_node->joined_thread = NULL;
     new_node->isReady = true;
     new_node->wakeup_time = 0;
+    new_node->isBlockedOnMutex = false;
 
     if (*head == NULL)
     {
@@ -56,7 +57,7 @@ struct thread_t* next_thread(struct thread_t** head, struct thread_t** prev_thre
 
     for (;;)
     {
-        if (current->isReady)
+        if (current->isReady && current->isBlockedOnMutex == false)
         {
             if (((clock() / CLOCKS_PER_SEC) * 1000) >= current->wakeup_time)
             {
@@ -66,7 +67,6 @@ struct thread_t* next_thread(struct thread_t** head, struct thread_t** prev_thre
                 {
                     if ((current->joined_thread)->isReady == false)
                     {
-                        current->joined_thread = NULL;
                         return current;
                     }
                 }
