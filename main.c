@@ -4,35 +4,46 @@
 void func_first();
 void func_second();
 
+struct thread_t* first = NULL;
+struct thread_t* second = NULL;
+struct mutex_t* mutex = NULL;
+
 int main()
 {
-    sleep(3000);
-    struct thread_t* first = create_thread(&func_first);
-    struct thread_t* second = create_thread(&func_second);
+    puts("Main thread start!");
+    mutex_init(&mutex);
+
+    first = create_thread(&func_first);
+    second = create_thread(&func_second);
 
     yield();
 
     join(first);
     join(second);
 
-    sleep(3000);
     puts("Main thread end!");
+    mutex_remove(&mutex);
     return 0;
 }
 
 void func_first()
 {
-    sleep(5000);
+    acquire_mutex(&mutex);
+
     puts("First thread start!");
     yield();
     puts("First thread end!");
 
+    release_mutex(&mutex);
 }
 
 void func_second()
 {
-    sleep(10000);
+    acquire_mutex(&mutex);
+
     puts("Second thread start!");
     yield();
     puts("Second thread end!");
+
+    release_mutex(&mutex);
 }
