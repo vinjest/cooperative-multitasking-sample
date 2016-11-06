@@ -1,8 +1,10 @@
 #include <setjmp.h>
 #include <stdbool.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <time.h>
 #include "list.h"
+#include "queue.h"
+#include "scheduler.h"
 
 #define default_stack_size 65536
 
@@ -16,6 +18,10 @@ void yield();
 struct thread_t* create_thread(void(*func_ptr)());
 void thread_start(void(*func_ptr)(), struct thread_t* added_thread_ptr);
 void terminate_thread(struct thread_t* thread);
+void acquire_mutex(struct mutex_t** mtx);
+void release_mutex(struct mutex_t** mtx);
+void mutex_init(struct mutex_t** mtx);
+void mutex_remove(struct mutex_t** mtx);
 void sleep(long milliseconds);
 void join(struct thread_t* thread);
 
@@ -97,4 +103,86 @@ void join(struct thread_t* thread)
 
     current_thread->joined_thread = thread;
     yield();
+}
+
+void mutex_init(struct mutex_t** mtx)
+{
+    if (*mtx)
+        return;
+    else
+    {
+        struct mutex_t* mutex = (struct mutex_t*)malloc(sizeof(struct mutex_t));
+        mutex->count = 0;
+        mutex->owner = NULL;
+        mutex->waiting_queue = NULL;
+        *mtx = mutex;
+    }
+}
+
+void mutex_remove(struct mutex_t** mtx)
+{
+    if (!*mtx)
+        return;
+    else
+    {
+        if ((*mtx)->count == 0)
+        {
+            if ((*mtx)->waiting_queue == NULL)
+            {
+                free(*mtx);
+                *mtx = NULL;
+            }
+        }
+    }
+}
+
+void acquire_mutex(struct mutex_t** mtx)
+{
+    if (!current_thread)
+        current_thread = add_thread(&thread_list);
+
+    if (!*mtx)
+        return;
+
+    if ((*mtx)->count == 0)
+    {
+        (*mtx)->owner = current_thread;
+        (*mtx)->count++;
+    }
+    else
+    {
+        if ((*mtx)->owner == current_thread)
+            (*mtx)->count++;
+        else
+        {
+            push_back(&((*mtx)->waiting_queue), &current_thread);
+            current_thread->isBlockedOnMutex = true;
+            yield();
+        }
+    }
+}
+
+void release_mutex(struct mutex_t** mtx)
+{
+    if (!*mtx)
+        return;
+
+    if ((*mtx)->count != 0)
+    {
+        if ((*mtx)->owner == current_thread)
+        {
+            (*mtx)->count--;
+
+            if ((*mtx)->count == 0)
+            {
+                (*mtx)->owner = NULL;
+
+                 if ((*mtx)->waiting_queue)
+                 {
+                      struct thread_t* thread = pop_front(&((*mtx)->waiting_queue));
+                      thread->isBlockedOnMutex = false;
+                 }
+            }
+        }
+    }
 }
