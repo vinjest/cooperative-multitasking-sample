@@ -13,7 +13,7 @@ struct thread_t
     struct thread_t* joined_thread;
     long wakeup_time;
     bool isReady;
-    bool isBlockedOnMutex;
+    bool isBlocked;
 };
 
 struct thread_t* add_thread(struct thread_t** head);
